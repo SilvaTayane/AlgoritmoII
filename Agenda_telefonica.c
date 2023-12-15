@@ -1,56 +1,53 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <time.h>
 #include <ctype.h>
-#define MAX_PESSOAS 50
-typedef struct {
-    char nome[30];
-    char telefone[4];
-    char email[30];
-    char data[10];
+#include <stdio.h>
+#include <stdlib.h>
+#include <locale.h>
+#include <string.h>
+#define INFINITY (1<<20)
+
+//Struct para armazenar as informações do arquivo
+typedef struct p{
+    int IDPessoa;
+    char nome[31];
     char cpf[12];
-    int id;
-} Agenda;
+    char data[11];
+    char telefone[12];
+    char email[31];
+} PESSOA;
 
+//Declarando funções
 void menu();
-void cadastrar();
-void editar();
-void excluir();
-void consultar();
+void carregaArquivo();
+void imprimeArquivo();
+void editaArquivo();
+void excluiArquivo();
+void cadastraArquivo();
+void escreverArquivo();
+int ultimoID();
+int validarCPF(const char *cpf);
+int validarEmail(const char *email);
+int validarData(const char *data);
+int verificaTelefone(const char *telefone);
 
-int main()
-{
+
+PESSOA lista[100];
+int cont;
+FILE *arquivo;
+
+//Main
+int main(){
     menu();
     return 0;
 }
 
-void salvarEmArquivo(Agenda *cadastros, int quantidade) {
-    Agenda pessoa[MAX_PESSOAS];
-    FILE *arquivo = fopen("cadastros.txt", "a+");
-
-    if (arquivo == NULL) {
-        printf("Erro ao criar o arquivo.\n");
-        return;
-    }
-
-    for (int i = 0; i < quantidade; i++) {
-        fprintf(arquivo, "ID: %d\n", pessoa[i].id);
-        fprintf(arquivo, "Nome: %s\n", pessoa[i].nome);
-        fprintf(arquivo, "Data de nascimento: %s\n", pessoa[i].data);
-        fprintf(arquivo, "CPF: %s\n", pessoa[i].cpf);
-        fprintf(arquivo, "Email: %s\n", pessoa[i].email);
-        fprintf(arquivo, "\n");
-    }
-
-    fclose(arquivo);
-}
-
+//Menu principal
 void menu() {
     int opcao;
+    carregaArquivo();
     do {
         // Menu
-        printf("=========Agenda Telefônica=========\n");
+        printf("\n=========Agenda Telefônica=========\n");
         printf("|1| Cadastrar\n");
         printf("|2| Editar\n");
         printf("|3| Excluir\n");
@@ -61,26 +58,233 @@ void menu() {
 
         switch (opcao) {
             case 1:
-                cadastrar();
+                cadastraArquivo();
                 break;
             case 2:
-                editar();
+                editaArquivo();
                 break;
             case 3:
-                excluir();
+                excluiArquivo();
                 break;
             case 4:
-                consultar();
+                imprimeArquivo();
                 break;
             case 5:
-                printf("Saindo do programa. Obrigado!\n");
-                break;
+                printf("\nSaindo do programa. Obrigado!\n");
+                exit(0);
             default:
                 printf("Opcao invalida. Tente novamente.\n");
         }
     } while (opcao != 5);
 }
 
+//Carregar de arquivo para memoria
+void carregaArquivo(){
+    cont = 0;
+    arquivo = fopen("pessoa.txt", "r+");
+    //Percorre o arquivo até que encontre o fim do arquivo (EOF)
+    //Utiliza a função fscanf para realizar a leitura formatada
+    //Guarda os dados lidos no vetor de structs criado anteriormente
+    while (fscanf(arquivo, "%d ; %s ; %s ; %s ; %s ; %s\n",
+                  &lista[cont].IDPessoa, lista[cont].nome , lista[cont].cpf,
+                  lista[cont].data , lista[cont].email , lista[cont].telefone) != EOF) {
+        cont++;
+    }
+    fclose(arquivo);
+} 
+
+//Carregar de memoria para arquivo 
+void escreverArquivo() {
+arquivo = fopen("pessoa.txt", "w+");
+    
+    for(int k = 0; k < cont; k++) {
+        fprintf(arquivo, "%d ; %s ; %s ; %s ; %s ; %s\n", lista[k].IDPessoa, lista[k].nome, lista[k].cpf, lista[k].data, lista[k].email, lista[k].telefone);
+    }
+    fclose(arquivo);
+}
+
+//Funcoes de CRUD
+
+void cadastraArquivo(){
+    PESSOA novaPessoa;
+
+    printf("\n----   Cadastrar   ----\n");
+    
+    do{
+        printf("Nome: ");
+        scanf("%s", novaPessoa.nome);
+    }while(strlen(novaPessoa.nome) < 2);
+    
+    do {
+        printf("CPF: ");
+        scanf("%s", novaPessoa.cpf);
+        if (validarCPF(novaPessoa.cpf) ==0 ) {
+            printf("CPF inválido! Tente novamente.\n");
+        }
+    } while (validarCPF(novaPessoa.cpf) == 0);
+    
+    do {
+        printf("Data de nascimento (dd/mm/YYYY): ");
+        scanf("%s", novaPessoa.data);
+        if (validarData(novaPessoa.data) == 0) {
+            printf("Data de nascimento inválida! Tente novamente.\n");
+        }
+    } while (validarData(novaPessoa.data) == 0);
+
+    do {
+        printf("Email: ");
+        scanf("%s", novaPessoa.email);
+        if(validarEmail(novaPessoa.email)==0){
+            printf("Email inválido!");
+        }
+    } while (validarEmail(novaPessoa.email) == 0);
+    
+
+    do {
+        printf("Digite o Telefone com (DDD): ");
+        scanf("%s", novaPessoa.telefone);
+        if(verificaTelefone(novaPessoa.telefone) == 0)
+            printf("Telefone inválido!");
+    }while(verificaTelefone(novaPessoa.telefone) == 0);
+
+    printf("\nCadastro realizado com sucesso!!\n");
+    
+    arquivo = fopen("pessoa.txt", "a+");
+    fprintf(arquivo, "%d ; %s ; %s ; %s ; %s ; %s\n", ultimoID()+1,novaPessoa.nome,novaPessoa.cpf,novaPessoa.data,novaPessoa.email,novaPessoa.telefone);
+    fclose(arquivo);
+    
+    carregaArquivo();
+}
+
+
+void editaArquivo(){
+    int i;
+    int IDPessoaAlteracao, op_editar, op_alteracao;
+    char NomePessoaAlteracao[31];
+
+
+    do{
+        imprimeArquivo();
+        printf("\n-----EDIÇÃO-----\n");
+        printf("\n|1| Editar usando o Nome\n|2| Editar usando o ID\n|3| Retornar\n");
+        scanf("%d", &op_editar);
+        if (op_editar == 1)
+        {
+            printf("Digite o nome: ");
+            scanf("%s", NomePessoaAlteracao);
+
+            for (int i = 0; i < cont; i++)
+            {
+                if (strcmp(NomePessoaAlteracao, lista[i].nome) == 0)
+                {
+                    printf("O que deseja alterar:\n |1| Nome\n|2| Data de nascimento\n|3| CPF\n|4| Email\n|5| Retornar\n");
+                    scanf("%d", &op_alteracao);
+                    switch (op_alteracao)
+                    {
+                        case 1:
+                            printf("Digite o novo nome: ");
+                            scanf("%s", lista[i].nome);
+                            escreverArquivo();
+                            break;
+                        case 2:
+                            printf("Digite a data de nascimento: ");
+                            scanf("%s", lista[i].data);
+                            escreverArquivo();
+                            break;
+                        case 3:
+                            printf("Digite o CPF: ");
+                            scanf("%s", lista[i].cpf);
+                            escreverArquivo();
+                            break;
+                        case 4:
+                            printf("Digite o Email: ");
+                            scanf("%s", lista[i].email);
+                            escreverArquivo();
+                            break;
+                        case 5:
+                            break;
+                    }
+                }
+            }
+        }else if(op_editar==2){
+            printf("Digite o ID: ");
+            scanf("%d", &IDPessoaAlteracao);
+
+            for (int i = 0; i < cont; i++)
+            {
+                if (IDPessoaAlteracao == lista[i].IDPessoa)
+                {
+                    printf("O que deseja alterar:\n|1| Nome\n|2| Data de nascimento\n|3| CPF\n|4| Email\n|5| Retornar\n");
+                    scanf("%d", &op_alteracao);
+                    switch (op_alteracao)
+                    {
+                        case 1:
+                            printf("Digite o novo nome: ");
+                            scanf("%s", lista[i].nome);
+                            escreverArquivo();
+                            break;
+                        case 2:
+                            printf("Digite a data de nascimento: ");
+                            scanf("%s", lista[i].data);
+                            escreverArquivo();
+                            break;
+                        case 3:
+                            printf("Digite o CPF: ");
+                            scanf("%s", lista[i].cpf);
+                            escreverArquivo();
+                            break;
+                        case 4:
+                            printf("Digite o Email: ");
+                            scanf("%s", lista[i].email);
+                            escreverArquivo();
+                            break;
+                        case 5:
+                            break;
+                        default:
+                        printf("Opção inválida");
+                    }
+                }
+            }
+        }else if((op_editar !=3) && (op_editar !=2) && (op_editar !=1)){
+            printf("Opção inválida!\n");
+        }
+    }while(op_editar != 3);
+
+}
+
+void excluiArquivo(){
+    arquivo = fopen("pessoa.txt", "w+");
+    int ID_exclusao, encontrou=0;
+    printf("Digite o ID para exclusao: \n");
+    scanf("%d", &ID_exclusao);
+    int i;
+    for(i = 0; i<cont; i++)
+    {
+        if(lista[i].IDPessoa != ID_exclusao)
+        {
+            fprintf(arquivo, "%d ; %s ; %s ; %s ; %s ; %s\n", lista[i].IDPessoa, lista[i].nome, lista[i].cpf, lista[i].data,lista[i].email ,lista[i].telefone);
+        }else{
+            encontrou=1;
+        }
+    }
+        if(encontrou != 1) {
+            printf("ID não encontrado!");
+    }
+    fclose(arquivo);
+    carregaArquivo();
+}
+//impressão do arquivo no terminal
+void imprimeArquivo(){
+    int i;
+    for(i = 0; i < cont; i++)
+    {
+        printf("%d ; %s ; %s ; %s ; %s ; %s\n", lista[i].IDPessoa, lista[i].nome, lista[i].cpf, lista[i].data, lista[i].email, lista[i].telefone);
+    }
+}
+
+//---------------------------------------------------
+
+//Validações
 int validarCPF(const char *cpf) {
     int i;
     int digito1 = 0, digito2 = 0;
@@ -110,8 +314,12 @@ int validarEmail(const char *email) {
         if (email[i] == '.')
             temPonto = 1;
     }
-
-    return temArroba && temPonto;
+    
+    if(temPonto == 1 && temArroba==1){
+        return 1;
+    }else{
+        return 0;
+    }
 }
 int validarData(const char *data) {
     int i;
@@ -141,88 +349,32 @@ int validarData(const char *data) {
 
     return 1;
 }
-
-void cadastrar(){
-    Agenda pessoa[MAX_PESSOAS];
-    int op_2, op_3;
-    char cpf[12], email[100], data[11];
-    int quantidade=0;
-    
-    do{
-        printf("---- Cadastrar ----\n|1| Pessoa\n|2| Telefone\n|3| Retornar\nEscolha uma opção: ");
-        scanf("%d", &op_2);
-        if (op_2 == 1){
-            printf("Nome: ");
-            scanf("%s", pessoa[quantidade].nome);
-
-            do{
-                printf("Data de nascimento (dd/mm/YYYY): ");
-                scanf("%s", data);
-                    if(validarData(data))
-                        strcpy(pessoa[quantidade].data,data);
-                    else
-                        printf("Data de nascimento invalida! Tente novamente.");
-            }while(!validarData(data));
-            
-            do{
-                printf("CPF: ");
-                scanf("%s", cpf);
-                    if(validarCPF)
-                        strcpy(pessoa[quantidade].cpf,cpf);
-                    else
-                        printf("CPF invalido! Tente novamente.\n");
-            }while(!validarCPF);
-            
-            do{
-                printf("Email: ");
-                scanf("%s", email);
-                if (validarEmail(email))
-                    strcpy(pessoa[quantidade].email, email);
-                else
-                    printf("Email invalido! Tente novamente.\n");
-            }while(!validarEmail(email));
-            // Atribui um ID em ordem crescente
-           pessoa[quantidade].id = quantidade + 1;
-
-        // Incrementa a quantidade de pessoas
-            quantidade++;
-            printf("\nCadastro realizado com sucesso!!\n");
-            salvarEmArquivo(pessoa, quantidade);
-            
-        }else if(op_2 == 2){
-            int i=0;
-            printf("---- Telefone ----\nComo deseja realizar a pesquisa:\n");
-            printf("|1| Nome\n|2| IDPessoa");
-            scanf("%d", &op_3);
-            if(op_2==1){
-                
-            }
-            salvarEmArquivo(pessoa, quantidade);
-        }else if(op_2 == 3){
-            menu();
-        }
-    }while (op_2 < 1 || op_2 > 3);
-}
-void editar(){
-    int op_4;
-    
-    printf("Como deseja realizar a pesquisa:\n");
-    printf("|1| Nome\n|2| IDPessoa");
-    scanf("%d", &op_4);
-    
-    if(op_4==1){
-        
-    }else if(op_4==2){
-        
+int verificaTelefone(const char *telefone) {
+    // Verifica se o comprimento do número de telefone é válido
+    if (strlen(telefone) != 11) {
+        return 0;  // O número de telefone deve ter 11 dígitos
     }
-    
-    
-    
-}
-void excluir(){
-    
-}
-void consultar(){
-    
+
+    // Verifica se cada caractere do número de telefone é um dígito numérico
+    for (int i = 0; i < 11; i++) {
+        if (!isdigit(telefone[i])) {
+            return 0;  // Se algum caractere não for um dígito, o número é inválido
+        }
+    }
+
+    // Se todas as verificações passarem, o número de telefone é considerado válido
+    return 1;
 }
 
+
+int ultimoID(){
+    int maiorID = -INFINITY;
+    int i;
+    for(i = 0; i<cont; i++)
+    {
+        if(lista[i].IDPessoa > maiorID)
+        {
+            maiorID = lista[i].IDPessoa;
+        }
+    }
+}
